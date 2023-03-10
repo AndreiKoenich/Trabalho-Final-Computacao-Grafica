@@ -216,17 +216,25 @@ int tecla_A_pressionada = 0;
 int tecla_S_pressionada = 0;
 int tecla_D_pressionada = 0;
 
-#define VELOCIDADE_CAMERA 0.015
+#define VELOCIDADE_CAMERA 0.045
+
 #define LIMITE_ESQUERDA -45.0
 #define LIMITE_DIREITA 45.0
 #define LIMITE_FUNDO -45.0
 #define LIMITE_FRENTE 45.0
+#define LIMITE_CIMA 45.0
+#define LIMITE_BAIXO 0.0
+
 #define DIRECAO_ESQUERDA 0
 #define DIRECAO_DIREITA 1
 #define ALTURA_ALVOS 5.50
+#define ALVOS_VELOCIDADE 0.50
+#define QUANTIDADE_ALVOS 1
+#define MAXIMO_DANO 2
+
+#define VELOCIDADE_BALAS 0.01
+#define QUANTIDADE_BALAS 50
 #define ALTURA_BALAS 0.8
-#define ALVOS_VELOCIDADE_INICIO 0.03
-#define VELOCIDADE_BALAS 10.0
 
 #define PLANE  0
 #define ALVO 1
@@ -234,14 +242,27 @@ int tecla_D_pressionada = 0;
 #define BULLET 3
 #define SKYBOX 4
 #define MIRA 5
+#define HITBOX 6
+
+#define DIMENSOES_HITBOX 6
+#define ESQ_HITBOX 0
+#define DIR_HITBOX 1
+#define CIMA_HITBOX 2
+#define BAIXO_HITBOX 3
+#define FRENTE_HITBOX 4
+#define ATRAS_HITBOX 5
 
 typedef struct
 {
-    float x = 0;
+    float x = 0.0;
     float y = ALTURA_ALVOS;
-    float z = 0;
+    float z = 0.0;
+    float velocidade_alvo = ALVOS_VELOCIDADE;
+    float hitbox[DIMENSOES_HITBOX];
+
     int direcao = DIRECAO_DIREITA;
-    float velocidade = ALVOS_VELOCIDADE_INICIO;
+    int dano = 0;
+    int fase = 0;
 
 } Alvo;
 
@@ -250,12 +271,11 @@ typedef struct
     float x = 0;
     float y = ALTURA_BALAS;
     float z = 0;
+    glm::vec4 direcao = glm::vec4(0.0f,0.0f,0.0f,0.0f);
     bool desenhar = false;
 
 } Bala;
 
-int quantidade_alvos = 4;
-int quantidade_balas = 30;
 
 /* NOVAS VARIAVEIS GLOBAIS ACIMA */
 
@@ -407,13 +427,13 @@ int main(int argc, char* argv[])
     /* TRABALHO FINAL - NOVAS VARIÁVEIS USADAS NO LAÇO DEFINIDAS ABAIXO. */
 
    //ShowCursor(false);
-   //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    Alvo vetor_alvos[quantidade_alvos];
-    Bala vetor_balas[quantidade_balas];
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    Alvo vetor_alvos[QUANTIDADE_ALVOS];
+    Bala vetor_balas[QUANTIDADE_BALAS];
     bool disparar = false;
 
-    for (int i = 0; i < quantidade_alvos; i++)
+    for (int i = 0; i < QUANTIDADE_ALVOS; i++)
     {
         if (i % 2 == 0)
             vetor_alvos[i].direcao = DIRECAO_DIREITA;
@@ -506,24 +526,39 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, PLANE);
         DrawVirtualObject("the_plane");
 
-        for (int i = 0; i < quantidade_alvos; i++)
+        for (int i = 0; i < QUANTIDADE_ALVOS; i++)
         {
-            if (vetor_alvos[i].x >= LIMITE_DIREITA)
-                vetor_alvos[i].direcao = DIRECAO_ESQUERDA;
+            if (vetor_alvos[i].dano < MAXIMO_DANO)
+            {
+                if (vetor_alvos[i].x >= LIMITE_DIREITA)
+                    vetor_alvos[i].direcao = DIRECAO_ESQUERDA;
 
-            else if (vetor_alvos[i].x <= LIMITE_ESQUERDA)
-                vetor_alvos[i].direcao = DIRECAO_DIREITA;
+                else if (vetor_alvos[i].x <= LIMITE_ESQUERDA)
+                    vetor_alvos[i].direcao = DIRECAO_DIREITA;
 
-            if (vetor_alvos[i].direcao == DIRECAO_DIREITA)
-                vetor_alvos[i].x += vetor_alvos[i].velocidade;
-            else if (vetor_alvos[i].direcao == DIRECAO_ESQUERDA)
-                vetor_alvos[i].x -= vetor_alvos[i].velocidade;
+                if (vetor_alvos[i].direcao == DIRECAO_DIREITA)
+                    vetor_alvos[i].x += vetor_alvos[i].velocidade_alvo;
+
+                else if (vetor_alvos[i].direcao == DIRECAO_ESQUERDA)
+                    vetor_alvos[i].x -= vetor_alvos[i].velocidade_alvo;
+            }
         }
 
         model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[0].x,ALTURA_ALVOS,30.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, ALVO);
         DrawVirtualObject("Cube");
+
+        /*
+
+        vetor_alvos[0].hitbox[ESQ_HITBOX] = vetor_alvos[0].x;
+        vetor_alvos[0].hitbox[DIR_HITBOX] = vetor_alvos[0].x +10.0;
+
+        vetor_alvos[0].hitbox[BAIXO_HITBOX] = vetor_alvos[0].y;
+        vetor_alvos[0].hitbox[CIMA_HITBOX] = vetor_alvos[0].y+10.0;
+
+        vetor_alvos[0].hitbox[FRENTE_HITBOX] = vetor_alvos[0].z+10.0;
+        vetor_alvos[0].hitbox[ATRAS_HITBOX] = vetor_alvos[0].z;
 
         model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[1].x,ALTURA_ALVOS,0.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
@@ -538,7 +573,7 @@ int main(int argc, char* argv[])
         model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[3].x,ALTURA_ALVOS,-60.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, ALVO);
-        DrawVirtualObject("Cube");
+        DrawVirtualObject("Cube");*/
 
         model = Matrix_Scale(15.0f,15.0f,15.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
@@ -547,34 +582,72 @@ int main(int argc, char* argv[])
         DrawVirtualObject("the_sphere");
         glEnable(GL_CULL_FACE);
 
-        /*
-
-        for (int i = 0; i < quantidade_balas; i++)
+        for (int i = 0; i < QUANTIDADE_BALAS; i++)
         {
-            if (vetor_balas[i].z >= LIMITE_FRENTE || vetor_balas[i].z <= LIMITE_FUNDO)
+            if (vetor_balas[i].z >= LIMITE_FRENTE ||
+                vetor_balas[i].z <= LIMITE_FUNDO ||
+                vetor_balas[i].x <= LIMITE_ESQUERDA ||
+                vetor_balas[i].x >= LIMITE_DIREITA ||
+                vetor_balas[i].y >= LIMITE_CIMA ||
+                vetor_balas[i].y <= LIMITE_BAIXO)
+                vetor_balas[i].desenhar = false;
         }
 
-        if(g_LeftMouseButtonPressed)
-            for (int i = 0; i < quantidade_balas; i++)
+        if(g_LeftMouseButtonPressed && disparar == 0)
+            disparar = true;
+
+        if(!g_LeftMouseButtonPressed && disparar == true)
+        {
+             disparar = false;
+             for (int i = 0; i < QUANTIDADE_BALAS; i++)
                 if (vetor_balas[i].desenhar == false)
                 {
-                    vetor_balas[i].desenhar = true
+                    vetor_balas[i].desenhar = true;
                     vetor_balas[i].x = camera_position_c.x;
                     vetor_balas[i].y = camera_position_c.y;
                     vetor_balas[i].z = camera_position_c.z;
+                    vetor_balas[i].direcao.x = camera_view_vector.x;
+                    vetor_balas[i].direcao.y = camera_view_vector.y;
+                    vetor_balas[i].direcao.z = camera_view_vector.z;
                     break;
                 }
+        }
 
-        for (int i = 0; i < quantidade_balas; i++)
+        for (int i = 0; i < QUANTIDADE_BALAS; i++)
+        {
             if (vetor_balas[i].desenhar == true)
-                vetor_balas[i].z -= VELOCIDADE_BALAS;
+            {
+                vetor_balas[i].x += VELOCIDADE_BALAS*vetor_balas[i].direcao.x;
+                vetor_balas[i].y += VELOCIDADE_BALAS*vetor_balas[i].direcao.y;
+                vetor_balas[i].z += VELOCIDADE_BALAS*vetor_balas[i].direcao.z;
+
+                model = Matrix_Translate(vetor_balas[i].x,vetor_balas[i].y,vetor_balas[i].z)*Matrix_Scale(0.03f,0.03f,0.03f)*Matrix_Rotate_X(-1.57);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, BULLET);
+                DrawVirtualObject("Bullet");
+            }
+        }
+
+        /*
+
+        for (int i = 0; i < QUANTIDADE_BALAS; i++)
+        {
+            for (int j = 0; j < QUANTIDADE_ALVOS; j++)
+            {
+                if (vetor_balas[i].desenhar == true)
+                {
+                    if (vetor_balas[i].x >= vetor_alvos[j].hitbox[ESQ_HITBOX] &&
+                        vetor_balas[i].x <= vetor_alvos[j].hitbox[DIR_HITBOX] &&
+                        vetor_balas[i].y >= vetor_alvos[j].hitbox[BAIXO_HITBOX] &&
+                        vetor_balas[i].y <= vetor_alvos[j].hitbox[CIMA_HITBOX] &&
+                        vetor_balas[i].x >= vetor_alvos[j].hitbox[FRENTE_HITBOX] &&
+                        vetor_balas[i].z <= vetor_alvos[j].hitbox[ATRAS_HITBOX])
+                        vetor_alvos[j].dano += 1;
+                }
+            }
+        }
 
         */
-
-        model = Matrix_Translate(0.0f,0.5f,0.0f)*Matrix_Scale(0.03f,0.03f,0.03f)*Matrix_Rotate_X(-1.570796237f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, BULLET);
-        DrawVirtualObject("Bullet");
 
         glDisable(GL_DEPTH_TEST);
         /* DESENHO DA ARMA */
@@ -632,28 +705,28 @@ int main(int argc, char* argv[])
         if (tecla_W_pressionada == 1)
         {
             camera_position_c.x += (-1*w.x*VELOCIDADE_CAMERA);
-           // camera_position_c.y += (-1*w.y*VELOCIDADE_CAMERA);
+            //camera_position_c.y += (-1*w.y*VELOCIDADE_CAMERA);
             camera_position_c.z += (-1*w.z*VELOCIDADE_CAMERA);
         }
 
         if (tecla_S_pressionada == 1)
         {
             camera_position_c.x += (w.x*VELOCIDADE_CAMERA);
-           // camera_position_c.y += (w.y*VELOCIDADE_CAMERA);
+            //camera_position_c.y += (w.y*VELOCIDADE_CAMERA);
             camera_position_c.z += (w.z*VELOCIDADE_CAMERA);
         }
 
         if (tecla_D_pressionada == 1)
         {
             camera_position_c.x += (u.x*VELOCIDADE_CAMERA);
-          //  camera_position_c.y += (u.y*VELOCIDADE_CAMERA);
+            //camera_position_c.y += (u.y*VELOCIDADE_CAMERA);
             camera_position_c.z += (u.z*VELOCIDADE_CAMERA);
         }
 
         if (tecla_A_pressionada == 1)
         {
             camera_position_c.x += (-1*u.x*VELOCIDADE_CAMERA);
-          //  camera_position_c.y += (-1*u.y*VELOCIDADE_CAMERA);
+            //camera_position_c.y += (-1*u.y*VELOCIDADE_CAMERA);
             camera_position_c.z += (-1*u.z*VELOCIDADE_CAMERA);
         }
     }
@@ -1614,4 +1687,3 @@ void PrintObjModelInfo(ObjModel* model)
 
 // set makeprg=cd\ ..\ &&\ make\ run\ >/dev/null
 // vim: set spell spelllang=pt_br :
-
