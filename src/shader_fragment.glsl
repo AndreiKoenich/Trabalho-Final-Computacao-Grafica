@@ -24,7 +24,9 @@ uniform mat4 projection;
 #define ARMA 2
 #define BULLET 3
 #define SKYBOX 4
-#define MIRA 255
+#define MIRA 5
+#define HITBOX 6
+
 #define RO 10
 uniform int object_id;
 
@@ -38,9 +40,6 @@ uniform sampler2D TextureImage1;
 uniform sampler2D TextureImage2;
 uniform sampler2D TextureImage3;
 uniform sampler2D TextureImage4;
-uniform sampler2D TextureImage5;
-uniform sampler2D TextureImage6;
-uniform sampler2D TextureImage7;
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec4 color;
@@ -148,29 +147,6 @@ void main()
         U = (theta + M_PI)/(2*M_PI);
         V = (phi + M_PI_2)/M_PI;
         Kd = texture(TextureImage4, vec2(U,V)).rgb;
-    }
-
-    else if ( object_id == 5 )
-    {
-        q = 20.0;
-        U = texcoords.x;
-        V = texcoords.y;
-        Kd = texture(TextureImage5, vec2(U,V)).rgb;
-    }
-
-    else if ( object_id == 6 )
-    {
-        q = 20.0;
-        U = texcoords.x;
-        V = texcoords.y;
-        Kd = texture(TextureImage6, vec2(U,V)).rgb;
-    }
-    else if ( object_id == 7 )
-    {
-        q = 20.0;
-        U = texcoords.x;
-        V = texcoords.y;
-        Kd = texture(TextureImage7, vec2(U,V)).rgb;
     }
 
     // Espectro da fonte de iluminação
