@@ -223,15 +223,15 @@ int tecla_D_pressionada = 0;
 #define LIMITE_FUNDO -15.0
 #define LIMITE_FRENTE 15.0
 #define LIMITE_CIMA 15.0
-#define LIMITE_BAIXO 0.0
+#define LIMITE_BAIXO -15.0
 
-#define LIMITE_ESQ_ALVO -45.0
-#define LIMITE_DIR_ALVO 45.0
+#define LIMITE_ESQ_ALVO -10.0
+#define LIMITE_DIR_ALVO 10.0
 
 #define DIRECAO_ESQUERDA 0
 #define DIRECAO_DIREITA 1
-#define ALTURA_ALVOS 5.50
-#define VELOCIDADE_ALVO 0.2
+#define ESPESSURA_ALVOS 0.10
+#define VELOCIDADE_ALVOS 0.05
 #define QUANTIDADE_ALVOS 4
 #define MAXIMO_DANO 1
 
@@ -247,23 +247,19 @@ int tecla_D_pressionada = 0;
 #define MIRA 5
 #define HITBOX 6
 
-#define DIMENSOES_HITBOX 6
-#define ESQ_HITBOX 0
-#define DIR_HITBOX 1
-#define CIMA_HITBOX 2
-#define BAIXO_HITBOX 3
-#define FRENTE_HITBOX 4
-#define ATRAS_HITBOX 5
+glm::vec4 bbox_minimo_novo = glm::vec4(0.0f,0.0f,0.0f,0.0f);
+glm::vec4 bbox_maximo_novo = glm::vec4(0.0f,0.0f,0.0f,0.0f);
 
 typedef struct
 {
-    float x = 0.0;
-    float y = ALTURA_ALVOS;
-    float z = 0.0;
-    float velocidade_alvo = VELOCIDADE_ALVO;
-    float hitbox_x;
-    float hitbox_y;
-    float hitbox_z;
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float velocidade_alvo = VELOCIDADE_ALVOS;
+    float espessura = ESPESSURA_ALVOS;
+
+    glm::vec4 bbox_minimo;
+    glm::vec4 bbox_maximo;
 
     int direcao = DIRECAO_DIREITA;
     int dano = 0;
@@ -284,14 +280,6 @@ typedef struct
 } Bala;
 
 /* NOVAS VARIAVEIS GLOBAIS ACIMA */
-
-// Variáveis que controlam rotação do antebraço
-float g_ForearmAngleZ = 0.0f;
-float g_ForearmAngleX = 0.0f;
-
-// Variáveis que controlam translação do torso
-float g_TorsoPositionX = 0.0f;
-float g_TorsoPositionY = 0.0f;
 
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
@@ -445,8 +433,9 @@ int main(int argc, char* argv[])
             vetor_alvos[i].direcao = DIRECAO_DIREITA;
         else
             vetor_alvos[i].direcao = DIRECAO_ESQUERDA;
-        vetor_alvos[i].y = ALTURA_ALVOS;
-        vetor_alvos[i].z = 30.0*pow(2,0);
+        vetor_alvos[i].x = 0.0f;
+        vetor_alvos[i].y = 0.5f;
+        vetor_alvos[i].z = -3.0f*i;
     }
 
     /* TRABALHO FINAL - NOVAS VARIÁVEIS USADAS NO LAÇO DEFINIDAS ACIMA. */
@@ -480,7 +469,7 @@ int main(int argc, char* argv[])
         y = r*sin(g_CameraPhi);
         z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
         x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
-        camera_view_vector = glm::vec4(x,y,z,1.0f); // Vetor "view", sentido para onde a câmera está virada
+        camera_view_vector = glm::vec4(x,y,z,0.0f); // Vetor "view", sentido para onde a câmera está virada
         camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
         // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
@@ -534,61 +523,56 @@ int main(int argc, char* argv[])
 
         for (int i = 0; i < QUANTIDADE_ALVOS; i++)
         {
-            if (vetor_alvos[i].dano < MAXIMO_DANO)
+            if (vetor_alvos[i].x >= LIMITE_DIR_ALVO)
+                vetor_alvos[i].direcao = DIRECAO_ESQUERDA;
+
+            else if (vetor_alvos[i].x <= LIMITE_ESQ_ALVO)
+                vetor_alvos[i].direcao = DIRECAO_DIREITA;
+
+            if (vetor_alvos[i].direcao == DIRECAO_DIREITA)
+                vetor_alvos[i].x += vetor_alvos[i].velocidade_alvo;
+
+            else if (vetor_alvos[i].direcao == DIRECAO_ESQUERDA)
+                vetor_alvos[i].x -= vetor_alvos[i].velocidade_alvo;
+        }
+
+        for (int i = 0; i < QUANTIDADE_ALVOS; i++)
+        {
+            if (vetor_alvos[i].dano == 0)
             {
-                if (vetor_alvos[i].x >= LIMITE_DIR_ALVO)
-                    vetor_alvos[i].direcao = DIRECAO_ESQUERDA;
+                model = Matrix_Translate(vetor_alvos[i].x,vetor_alvos[i].y,vetor_alvos[i].z)*Matrix_Scale(0.1f,0.1f,0.01f);
+                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+                glUniform1i(g_object_id_uniform, ALVO);
+                DrawVirtualObject("Cube");
 
-                else if (vetor_alvos[i].x <= LIMITE_ESQ_ALVO)
-                    vetor_alvos[i].direcao = DIRECAO_DIREITA;
+                vetor_alvos[i].bbox_minimo = model*bbox_minimo_novo;
+                vetor_alvos[i].bbox_maximo = model*bbox_maximo_novo;
 
-                if (vetor_alvos[i].direcao == DIRECAO_DIREITA)
-                {
-                    vetor_alvos[i].x += vetor_alvos[i].velocidade_alvo;
-                }
+                vetor_alvos[i].bbox_minimo.x += vetor_alvos[i].x;
+                vetor_alvos[i].bbox_minimo.y += vetor_alvos[i].y;
+                vetor_alvos[i].bbox_minimo.z += vetor_alvos[i].z;
 
-                else if (vetor_alvos[i].direcao == DIRECAO_ESQUERDA)
-                {
-                    vetor_alvos[i].x -= vetor_alvos[i].velocidade_alvo;
-                }
+                vetor_alvos[i].bbox_maximo.x += vetor_alvos[i].x;
+                vetor_alvos[i].bbox_maximo.y += vetor_alvos[i].y;
+                vetor_alvos[i].bbox_maximo.z += vetor_alvos[i].z;
             }
         }
 
-        model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[0].x,vetor_alvos[0].y,vetor_alvos[0].z);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, ALVO);
-        DrawVirtualObject("Cube");
-
-       // vetor_alvos[0].hitbox_y = vetor_alvos[0].y-5;
-      //  vetor_alvos[0].hitbox_z = vetor_alvos[0].z-29.6;
-
-      //  vetor_alvos[0].hitbox_x -= 0.1;
-   //     vetor_alvos[0].hitbox_y -= 0.1;
-      //  vetor_alvos[0].hitbox_z -= 0.0;
-
-        //model = Matrix_Translate(vetor_alvos[0].hitbox_x,vetor_alvos[0].hitbox_y,vetor_alvos[0].hitbox_z);
-        //model = Matrix_Translate(0.0f,0.0f,0.0f)*Matrix_Scale(0.1f,0.1f,0.1f);
-        //glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        //glUniform1i(g_object_id_uniform, MIRA);
-        //DrawVirtualObject("the_sphere");
-
         /*
-
-        model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[1].x,ALTURA_ALVOS,0.0f);
+        model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[1].x,0.50f,0.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, ALVO);
         DrawVirtualObject("Cube");
 
-        model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[2].x,ALTURA_ALVOS,-30.0f);
+        model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[2].x,0.50f,-30.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, ALVO);
         DrawVirtualObject("Cube");
 
-        model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[3].x,ALTURA_ALVOS,-60.0f);
+        model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[3].x,0.50f,-60.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, ALVO);
         DrawVirtualObject("Cube");
-
         */
 
         model = Matrix_Scale(15.0f,15.0f,15.0f);
@@ -613,7 +597,6 @@ int main(int argc, char* argv[])
                     vetor_balas[i].y = 0.0;
                     vetor_balas[i].z = 0.0;
                 }
-
         }
 
         if(g_LeftMouseButtonPressed && disparar == 0)
@@ -637,7 +620,6 @@ int main(int argc, char* argv[])
                     glm::vec4 eixo_rotacao = crossproduct(glm::vec4(0.0f,1.0f,0.0f,0.0f),camera_view_vector);
                     vetor_balas[i].eixo_rotacao_normalizado = normalize(eixo_rotacao);
                     glm::vec4 view_normalizado = normalize(camera_view_vector);
-                    view_normalizado.w = 0.0f;
                     float cosseno_rotacao = dotproduct(view_normalizado,glm::vec4(0.0f,1.0f,0.0f,0.0f));
 
                     vetor_balas[i].angulo_rotacao = acosf(cosseno_rotacao);
@@ -662,21 +644,34 @@ int main(int argc, char* argv[])
             }
         }
 
+        /* TESTE COM A HITBOX */
+
         for (int i = 0; i < QUANTIDADE_BALAS; i++)
         {
             for (int j = 0; j < QUANTIDADE_ALVOS; j++)
             {
                 if (vetor_balas[i].desenhar == true)
                 {
-                    if (vetor_balas[i].x >= vetor_alvos[j].x-5.0 &&
-                        vetor_balas[i].x <= vetor_alvos[j].x+5.0 &&
-                        vetor_balas[i].y >= 0.0 &&
-                        vetor_balas[i].y <= ALTURA_ALVOS)
-                        vetor_alvos[j].dano += 1;
+                    if (vetor_balas[i].x >= vetor_alvos[j].bbox_minimo.x &&
+                        vetor_balas[i].x <= vetor_alvos[j].bbox_maximo.x &&
+                        vetor_balas[i].y >= vetor_alvos[j].bbox_minimo.y &&
+                        vetor_balas[i].y <= vetor_alvos[j].bbox_maximo.y &&
+                        vetor_balas[i].z <= vetor_alvos[j].bbox_maximo.z &&
+                        vetor_balas[i].z >= vetor_alvos[j].bbox_maximo.z-ESPESSURA_ALVOS)
+                        {
+                            PrintVector(vetor_alvos[j].bbox_minimo);
+                            PrintVector(vetor_alvos[j].bbox_maximo);
+                            printf("\n%f", vetor_balas[i].x);
+                            printf("\n%f", vetor_balas[i].y);
+                            printf("\n%f", vetor_balas[i].z);
+                            vetor_alvos[j].dano += 1;
+                            vetor_balas[i].desenhar = false;
+
+
+                        }
                 }
             }
         }
-
 
         glDisable(GL_DEPTH_TEST);
         /* DESENHO DA ARMA */
@@ -832,6 +827,19 @@ void DrawVirtualObject(const char* object_name)
     // com os parâmetros da axis-aligned bounding box (AABB) do modelo.
     glm::vec3 bbox_min = g_VirtualScene[object_name].bbox_min;
     glm::vec3 bbox_max = g_VirtualScene[object_name].bbox_max;
+
+    /* NOVA ADICAO ABAIXO. */
+
+    bbox_minimo_novo.x = bbox_min.x;
+    bbox_minimo_novo.y = bbox_min.y;
+    bbox_minimo_novo.z = bbox_min.z;
+    bbox_minimo_novo.w = 0.0f;
+
+    bbox_maximo_novo.x = bbox_max.x;
+    bbox_maximo_novo.y = bbox_max.y;
+    bbox_maximo_novo.z = bbox_max.z;
+    bbox_maximo_novo.w = 0.0f;
+
     glUniform4f(g_bbox_min_uniform, bbox_min.x, bbox_min.y, bbox_min.z, 1.0f);
     glUniform4f(g_bbox_max_uniform, bbox_max.x, bbox_max.y, bbox_max.z, 1.0f);
 
@@ -1426,17 +1434,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         g_AngleZ += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
     }
 
-    // Se o usuário apertar a tecla espaço, resetamos os ângulos de Euler para zero.
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
-    {
-        g_AngleX = 0.0f;
-        g_AngleY = 0.0f;
-        g_AngleZ = 0.0f;
-        g_ForearmAngleX = 0.0f;
-        g_ForearmAngleZ = 0.0f;
-        g_TorsoPositionX = 0.0f;
-        g_TorsoPositionY = 0.0f;
-    }
 
     // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
     if (key == GLFW_KEY_P && action == GLFW_PRESS)
