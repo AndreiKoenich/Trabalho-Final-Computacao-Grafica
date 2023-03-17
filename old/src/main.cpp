@@ -538,7 +538,7 @@ int main(int argc, char* argv[])
 
         for (int i = 0; i < QUANTIDADE_ALVOS; i++)
         {
-            if (vetor_alvos[i].dano == 0)
+            if (vetor_alvos[i].dano < MAXIMO_DANO)
             {
                 model = Matrix_Translate(vetor_alvos[i].x,vetor_alvos[i].y,vetor_alvos[i].z)*Matrix_Scale(0.1f,0.1f,0.01f);
                 glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
@@ -659,15 +659,8 @@ int main(int argc, char* argv[])
                         vetor_balas[i].z <= vetor_alvos[j].bbox_maximo.z &&
                         vetor_balas[i].z >= vetor_alvos[j].bbox_maximo.z-ESPESSURA_ALVOS)
                         {
-                            PrintVector(vetor_alvos[j].bbox_minimo);
-                            PrintVector(vetor_alvos[j].bbox_maximo);
-                            printf("\n%f", vetor_balas[i].x);
-                            printf("\n%f", vetor_balas[i].y);
-                            printf("\n%f", vetor_balas[i].z);
                             vetor_alvos[j].dano += 1;
                             vetor_balas[i].desenhar = false;
-
-
                         }
                 }
             }
