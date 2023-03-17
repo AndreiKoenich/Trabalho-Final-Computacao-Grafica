@@ -198,11 +198,12 @@ float g_CameraDistance = 2.5f; // Distância da câmera para a origem
 
 /* NOVAS VARIAVEIS GLOBAIS ABAIXO */
 
+bool iniciar_jogo = false;
+
 float r = g_CameraDistance;
 float y = 0.0f;
 float z = 0.0f;
 float x = 0.0f;
-float deslocamento_w[3] = {0,0,0};
 
 glm::vec4 camera_position_c  = glm::vec4(0.0f,0.55f,4.5f,1.0f); // Ponto "c", centro da câmera
 glm::vec4 camera_view_vector = glm::vec4(0.0f,0.0f,0.0f,0.0f); // Vetor "view", sentido para onde a câmera está virada
@@ -711,26 +712,27 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
         /* NOVAS CHAMADAS DE FUNÇÕES DO TRABALHO FINAL ABAIXO. */
-
-        desenha_chao();
-        movimenta_alvos(vetor_alvos);
-        desenha_alvos(vetor_alvos);
-        desenha_skybox();
-        controla_balas(vetor_balas);
-
-        if(g_LeftMouseButtonPressed && disparar == 0)
-            disparar = true;
-        if(!g_LeftMouseButtonPressed && disparar == true)
+        if (iniciar_jogo == true)
         {
-            disparar = false;
-            dispara_balas(vetor_balas);
+            desenha_chao();
+            movimenta_alvos(vetor_alvos);
+            desenha_alvos(vetor_alvos);
+            desenha_skybox();
+            controla_balas(vetor_balas);
+
+            if(g_LeftMouseButtonPressed && disparar == 0)
+                disparar = true;
+            if(!g_LeftMouseButtonPressed && disparar == true)
+            {
+                disparar = false;
+                dispara_balas(vetor_balas);
+            }
+
+            desenha_balas(vetor_balas);
+            destroi_alvos(vetor_balas,vetor_alvos);
+            desenha_skybox();
+            desenha_hud();
         }
-
-        desenha_balas(vetor_balas);
-        destroi_alvos(vetor_balas,vetor_alvos);
-        desenha_skybox();
-        desenha_hud();
-
         /* NOVAS CHAMADAS DE FUNÇÕES DO TRABALHO FINAL ACIMA. */
 
         // Imprimimos na tela informação sobre o número de quadros renderizados
@@ -1435,56 +1437,14 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
 
-    // O código abaixo implementa a seguinte lógica:
-    //   Se apertar tecla X       então g_AngleX += delta;
-    //   Se apertar tecla shift+X então g_AngleX -= delta;
-    //   Se apertar tecla Y       então g_AngleY += delta;
-    //   Se apertar tecla shift+Y então g_AngleY -= delta;
-    //   Se apertar tecla Z       então g_AngleZ += delta;
-    //   Se apertar tecla shift+Z então g_AngleZ -= delta;
-
-    float delta = 3.141592 / 16; // 22.5 graus, em radianos.
-
-    if (key == GLFW_KEY_X && action == GLFW_PRESS)
+    /* SE O USUÁRIO PRESSIONAR ANTER, INICIAMOS O JOGO. */
+    if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
     {
-        g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
+        // Quando o usuário soltar o botão esquerdo do mouse, atualizamos a
+        // variável abaixo para false.
+        iniciar_jogo = true;
     }
 
-    if (key == GLFW_KEY_Y && action == GLFW_PRESS)
-    {
-        g_AngleY += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-    if (key == GLFW_KEY_Z && action == GLFW_PRESS)
-    {
-        g_AngleZ += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-
-
-    // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
-    if (key == GLFW_KEY_P && action == GLFW_PRESS)
-    {
-        g_UsePerspectiveProjection = true;
-    }
-
-    // Se o usuário apertar a tecla O, utilizamos projeção ortográfica.
-    if (key == GLFW_KEY_O && action == GLFW_PRESS)
-    {
-        g_UsePerspectiveProjection = false;
-    }
-
-    // Se o usuário apertar a tecla H, fazemos um "toggle" do texto informativo mostrado na tela.
-    if (key == GLFW_KEY_H && action == GLFW_PRESS)
-    {
-        g_ShowInfoText = !g_ShowInfoText;
-    }
-
-    // Se o usuário apertar a tecla R, recarregamos os shaders dos arquivos "shader_fragment.glsl" e "shader_vertex.glsl".
-    if (key == GLFW_KEY_R && action == GLFW_PRESS)
-    {
-        LoadShadersFromFiles();
-        fprintf(stdout,"Shaders recarregados!\n");
-        fflush(stdout);
-    }
 
     if (key == GLFW_KEY_W)
     {
