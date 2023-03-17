@@ -276,9 +276,9 @@ typedef struct
 
 typedef struct
 {
-    float x = 0;
+    float x = 0.0;
     float y = ALTURA_BALAS;
-    float z = 0;
+    float z = 0.0;
     glm::vec4 direcao = glm::vec4(0.0f,0.0f,0.0f,0.0f);
     glm::vec4 eixo_rotacao_normalizado = glm::vec4(0.0f,0.0f,0.0f,0.0f);
     float angulo_rotacao;
@@ -732,10 +732,8 @@ int main(int argc, char* argv[])
 
         /* NOVAS CHAMADAS DE FUNÇÕES DO TRABALHO FINAL ABAIXO. */
 
-       if (iniciar_jogo == false)
-        {
+        if (iniciar_jogo == false)
             tela_inicio();
-        }
 
         if (iniciar_jogo == true)
         {
