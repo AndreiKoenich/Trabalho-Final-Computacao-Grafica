@@ -230,7 +230,7 @@ int tecla_D_pressionada = 0;
 
 #define DIRECAO_ESQUERDA 0
 #define DIRECAO_DIREITA 1
-#define ESPESSURA_ALVOS 0.10
+#define ESPESSURA_ALVOS 0.50
 #define VELOCIDADE_ALVOS 0.05
 #define QUANTIDADE_ALVOS 4
 #define MAXIMO_DANO 1
@@ -298,6 +298,212 @@ GLint g_bbox_max_uniform;
 
 // Número de texturas carregadas pela função LoadTextureImage()
 GLuint g_NumLoadedTextures = 0;
+
+/* NOVAS FUNÇÕES DO TRABALHO FINAL ABAIXO */
+
+void inicializa_alvos(Alvo vetor_alvos[])
+{
+    for (int i = 0; i < QUANTIDADE_ALVOS; i++)
+    {
+        if (i % 2 == 0)
+            vetor_alvos[i].direcao = DIRECAO_DIREITA;
+        else
+            vetor_alvos[i].direcao = DIRECAO_ESQUERDA;
+        vetor_alvos[i].x = 0.0f;
+        vetor_alvos[i].y = 0.5f;
+        vetor_alvos[i].z = -3.0f*i;
+    }
+}
+
+void desenha_chao()
+{
+    // Desenhamos o plano do chão
+    glm::mat4 model = Matrix_Translate(0.0f,0.0f,0.0f)*Matrix_Scale(5.0f,5.0f,5.0f);
+    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+    glUniform1i(g_object_id_uniform, PLANE);
+    DrawVirtualObject("the_plane");
+}
+
+void movimenta_alvos(Alvo vetor_alvos[])
+{
+    for (int i = 0; i < QUANTIDADE_ALVOS; i++)
+    {
+        if (vetor_alvos[i].x >= LIMITE_DIR_ALVO)
+            vetor_alvos[i].direcao = DIRECAO_ESQUERDA;
+
+        else if (vetor_alvos[i].x <= LIMITE_ESQ_ALVO)
+            vetor_alvos[i].direcao = DIRECAO_DIREITA;
+
+        if (vetor_alvos[i].direcao == DIRECAO_DIREITA)
+            vetor_alvos[i].x += vetor_alvos[i].velocidade_alvo;
+
+        else if (vetor_alvos[i].direcao == DIRECAO_ESQUERDA)
+            vetor_alvos[i].x -= vetor_alvos[i].velocidade_alvo;
+    }
+}
+
+void desenha_alvos(Alvo vetor_alvos[])
+{
+    glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
+    for (int i = 0; i < QUANTIDADE_ALVOS; i++)
+    {
+        if (vetor_alvos[i].dano < MAXIMO_DANO)
+        {
+            model = Matrix_Translate(vetor_alvos[i].x,vetor_alvos[i].y,vetor_alvos[i].z)*Matrix_Scale(0.1f,0.1f,0.01f);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, ALVO);
+            DrawVirtualObject("Cube");
+
+            vetor_alvos[i].bbox_minimo = model*bbox_minimo_novo;
+            vetor_alvos[i].bbox_maximo = model*bbox_maximo_novo;
+
+            vetor_alvos[i].bbox_minimo.x += vetor_alvos[i].x;
+            vetor_alvos[i].bbox_minimo.y += vetor_alvos[i].y;
+            vetor_alvos[i].bbox_minimo.z += vetor_alvos[i].z;
+
+            vetor_alvos[i].bbox_maximo.x += vetor_alvos[i].x;
+            vetor_alvos[i].bbox_maximo.y += vetor_alvos[i].y;
+            vetor_alvos[i].bbox_maximo.z += vetor_alvos[i].z;
+        }
+    }
+}
+
+void controla_balas(Bala vetor_balas[])
+{
+    for (int i = 0; i < QUANTIDADE_BALAS; i++)
+    {
+        if (vetor_balas[i].z >= LIMITE_FRENTE ||
+            vetor_balas[i].z <= LIMITE_FUNDO ||
+            vetor_balas[i].x <= LIMITE_ESQUERDA ||
+            vetor_balas[i].x >= LIMITE_DIREITA ||
+            vetor_balas[i].y >= LIMITE_CIMA ||
+            vetor_balas[i].y <= LIMITE_BAIXO)
+            {
+                vetor_balas[i].desenhar = false;
+                vetor_balas[i].x = 0.0;
+                vetor_balas[i].y = 0.0;
+                vetor_balas[i].z = 0.0;
+            }
+    }
+}
+
+void dispara_balas(Bala vetor_balas[])
+{
+    for (int i = 0; i < QUANTIDADE_BALAS; i++)
+        if (vetor_balas[i].desenhar == false)
+        {
+            vetor_balas[i].desenhar = true;
+            vetor_balas[i].x = camera_position_c.x;
+            vetor_balas[i].y = camera_position_c.y;
+            vetor_balas[i].z = camera_position_c.z;
+
+            vetor_balas[i].direcao.x = camera_view_vector.x;
+            vetor_balas[i].direcao.y = camera_view_vector.y;
+            vetor_balas[i].direcao.z = camera_view_vector.z;
+
+            glm::vec4 eixo_rotacao = crossproduct(glm::vec4(0.0f,1.0f,0.0f,0.0f),camera_view_vector);
+            vetor_balas[i].eixo_rotacao_normalizado = normalize(eixo_rotacao);
+            glm::vec4 view_normalizado = normalize(camera_view_vector);
+            float cosseno_rotacao = dotproduct(view_normalizado,glm::vec4(0.0f,1.0f,0.0f,0.0f));
+
+            vetor_balas[i].angulo_rotacao = acosf(cosseno_rotacao);
+            break;
+        }
+}
+
+void desenha_balas(Bala vetor_balas[])
+{
+    glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
+    for (int i = 0; i < QUANTIDADE_BALAS; i++)
+    {
+        if (vetor_balas[i].desenhar == true)
+        {
+            vetor_balas[i].x += VELOCIDADE_BALAS*vetor_balas[i].direcao.x;
+            vetor_balas[i].y += VELOCIDADE_BALAS*vetor_balas[i].direcao.y;
+            vetor_balas[i].z += VELOCIDADE_BALAS*vetor_balas[i].direcao.z;
+
+            model = Matrix_Translate(vetor_balas[i].x,vetor_balas[i].y,vetor_balas[i].z)
+            *Matrix_Scale(0.03f,0.03f,0.03f)
+            *Matrix_Rotate(vetor_balas[i].angulo_rotacao,vetor_balas[i].eixo_rotacao_normalizado);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, BULLET);
+            DrawVirtualObject("Bullet");
+        }
+    }
+}
+
+void destroi_alvos(Bala vetor_balas[], Alvo vetor_alvos[])
+{
+    for (int i = 0; i < QUANTIDADE_BALAS; i++)
+    {
+        for (int j = 0; j < QUANTIDADE_ALVOS; j++)
+        {
+            if (vetor_balas[i].desenhar == true)
+            {
+                if (vetor_balas[i].x >= vetor_alvos[j].bbox_minimo.x &&
+                    vetor_balas[i].x <= vetor_alvos[j].bbox_maximo.x &&
+                    vetor_balas[i].y >= vetor_alvos[j].bbox_minimo.y &&
+                    vetor_balas[i].y <= vetor_alvos[j].bbox_maximo.y &&
+                    vetor_balas[i].z <= vetor_alvos[j].bbox_maximo.z &&
+                    vetor_balas[i].z >= vetor_alvos[j].bbox_maximo.z-ESPESSURA_ALVOS)
+                    {
+                        vetor_alvos[j].dano += 1;
+                        vetor_balas[i].desenhar = false;
+                    }
+            }
+        }
+    }
+}
+
+void desenha_skybox()
+{
+    glm::mat4 model;
+    model = Matrix_Scale(15.0f,15.0f,15.0f);
+    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+    glUniform1i(g_object_id_uniform, SKYBOX);
+    glDisable(GL_CULL_FACE);
+    DrawVirtualObject("the_sphere");
+    glEnable(GL_CULL_FACE);
+}
+
+void desenha_hud()
+{
+    glm::mat4 model, view, projection;
+    glDisable(GL_DEPTH_TEST);
+    /* DESENHO DA ARMA */
+    model = Matrix_Translate(0.75f,-0.70f,0.0f)*Matrix_Scale(-0.12f,0.12f,0.12f)*Matrix_Rotate_X(-0.1f)*Matrix_Rotate_Y(-15.3f);
+    view = Matrix_Identity();
+    projection = Matrix_Identity();
+    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+    glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
+    glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
+    glUniform1i(g_object_id_uniform, ARMA);
+    DrawVirtualObject("Cube_Cube.001");
+    /* DESENHO DA MIRA */
+    glUniform1i(g_object_id_uniform, MIRA);
+    view = Matrix_Identity();
+    projection = Matrix_Identity();
+    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+    glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
+    glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
+    /* PARTE ESQUERDA DA MIRA */
+    model = Matrix_Translate(-0.02f,0.0f,0.0f)*Matrix_Scale(-0.012f,0.007f,0.1f)*Matrix_Rotate_X(-1.570796237f)*Matrix_Rotate_Y(-1.570796237f);
+    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+    DrawVirtualObject("the_plane");
+    /* PARTE DIREITA DA MIRA */
+    model = Matrix_Translate(0.02f,0.0f,0.0f)*Matrix_Scale(-0.012f,0.007f,0.1f)*Matrix_Rotate_X(-1.570796237f)*Matrix_Rotate_Y(-1.570796237f);
+    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+    DrawVirtualObject("the_plane");
+    /* PARTE SUPERIOR DA MIRA */
+    model = Matrix_Translate(0.0f,0.038f,0.0f)*Matrix_Scale(-0.0038f,0.022f,0.1f)*Matrix_Rotate_X(-1.570796237f)*Matrix_Rotate_Y(-1.570796237f);
+    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+    DrawVirtualObject("the_plane");
+    /* PARTE INFERIOR DA MIRA */
+    model = Matrix_Translate(0.0f,-0.038f,0.0f)*Matrix_Scale(-0.0038f,0.022f,0.1f)*Matrix_Rotate_X(-1.570796237f)*Matrix_Rotate_Y(-1.570796237f);
+    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+    DrawVirtualObject("the_plane");
+    glEnable(GL_DEPTH_TEST);
+}
 
 int main(int argc, char* argv[])
 {
@@ -418,27 +624,16 @@ int main(int argc, char* argv[])
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
-    /* TRABALHO FINAL - NOVAS VARIÁVEIS USADAS NO LAÇO DEFINIDAS ABAIXO. */
+    /* TRABALHO FINAL - NOVAS VARIÁVEIS E CONFIGURAÇÕES USADAS NO LAÇO DEFINIDAS ABAIXO. */
 
-   //ShowCursor(false);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
     Alvo vetor_alvos[QUANTIDADE_ALVOS];
+    inicializa_alvos(vetor_alvos);
+
     Bala vetor_balas[QUANTIDADE_BALAS];
     bool disparar = false;
-
-    for (int i = 0; i < QUANTIDADE_ALVOS; i++)
-    {
-        if (i % 2 == 0)
-            vetor_alvos[i].direcao = DIRECAO_DIREITA;
-        else
-            vetor_alvos[i].direcao = DIRECAO_ESQUERDA;
-        vetor_alvos[i].x = 0.0f;
-        vetor_alvos[i].y = 0.5f;
-        vetor_alvos[i].z = -3.0f*i;
-    }
-
-    /* TRABALHO FINAL - NOVAS VARIÁVEIS USADAS NO LAÇO DEFINIDAS ACIMA. */
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -515,191 +710,28 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
         glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
-        // Desenhamos o plano do chão
-        model = Matrix_Translate(0.0f,0.0f,0.0f)*Matrix_Scale(5.0f,5.0f,5.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, PLANE);
-        DrawVirtualObject("the_plane");
+        /* NOVAS CHAMADAS DE FUNÇÕES DO TRABALHO FINAL ABAIXO. */
 
-        for (int i = 0; i < QUANTIDADE_ALVOS; i++)
-        {
-            if (vetor_alvos[i].x >= LIMITE_DIR_ALVO)
-                vetor_alvos[i].direcao = DIRECAO_ESQUERDA;
-
-            else if (vetor_alvos[i].x <= LIMITE_ESQ_ALVO)
-                vetor_alvos[i].direcao = DIRECAO_DIREITA;
-
-            if (vetor_alvos[i].direcao == DIRECAO_DIREITA)
-                vetor_alvos[i].x += vetor_alvos[i].velocidade_alvo;
-
-            else if (vetor_alvos[i].direcao == DIRECAO_ESQUERDA)
-                vetor_alvos[i].x -= vetor_alvos[i].velocidade_alvo;
-        }
-
-        for (int i = 0; i < QUANTIDADE_ALVOS; i++)
-        {
-            if (vetor_alvos[i].dano < MAXIMO_DANO)
-            {
-                model = Matrix_Translate(vetor_alvos[i].x,vetor_alvos[i].y,vetor_alvos[i].z)*Matrix_Scale(0.1f,0.1f,0.01f);
-                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-                glUniform1i(g_object_id_uniform, ALVO);
-                DrawVirtualObject("Cube");
-
-                vetor_alvos[i].bbox_minimo = model*bbox_minimo_novo;
-                vetor_alvos[i].bbox_maximo = model*bbox_maximo_novo;
-
-                vetor_alvos[i].bbox_minimo.x += vetor_alvos[i].x;
-                vetor_alvos[i].bbox_minimo.y += vetor_alvos[i].y;
-                vetor_alvos[i].bbox_minimo.z += vetor_alvos[i].z;
-
-                vetor_alvos[i].bbox_maximo.x += vetor_alvos[i].x;
-                vetor_alvos[i].bbox_maximo.y += vetor_alvos[i].y;
-                vetor_alvos[i].bbox_maximo.z += vetor_alvos[i].z;
-            }
-        }
-
-        /*
-        model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[1].x,0.50f,0.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, ALVO);
-        DrawVirtualObject("Cube");
-
-        model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[2].x,0.50f,-30.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, ALVO);
-        DrawVirtualObject("Cube");
-
-        model = Matrix_Scale(0.1f,0.1f,0.01f)*Matrix_Translate(vetor_alvos[3].x,0.50f,-60.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, ALVO);
-        DrawVirtualObject("Cube");
-        */
-
-        model = Matrix_Scale(15.0f,15.0f,15.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, SKYBOX);
-        glDisable(GL_CULL_FACE);
-        DrawVirtualObject("the_sphere");
-        glEnable(GL_CULL_FACE);
-
-
-        for (int i = 0; i < QUANTIDADE_BALAS; i++)
-        {
-            if (vetor_balas[i].z >= LIMITE_FRENTE ||
-                vetor_balas[i].z <= LIMITE_FUNDO ||
-                vetor_balas[i].x <= LIMITE_ESQUERDA ||
-                vetor_balas[i].x >= LIMITE_DIREITA ||
-                vetor_balas[i].y >= LIMITE_CIMA ||
-                vetor_balas[i].y <= LIMITE_BAIXO)
-                {
-                    vetor_balas[i].desenhar = false;
-                    vetor_balas[i].x = 0.0;
-                    vetor_balas[i].y = 0.0;
-                    vetor_balas[i].z = 0.0;
-                }
-        }
+        desenha_chao();
+        movimenta_alvos(vetor_alvos);
+        desenha_alvos(vetor_alvos);
+        desenha_skybox();
+        controla_balas(vetor_balas);
 
         if(g_LeftMouseButtonPressed && disparar == 0)
             disparar = true;
-
         if(!g_LeftMouseButtonPressed && disparar == true)
         {
-             disparar = false;
-             for (int i = 0; i < QUANTIDADE_BALAS; i++)
-                if (vetor_balas[i].desenhar == false)
-                {
-                    vetor_balas[i].desenhar = true;
-                    vetor_balas[i].x = camera_position_c.x;
-                    vetor_balas[i].y = camera_position_c.y;
-                    vetor_balas[i].z = camera_position_c.z;
-
-                    vetor_balas[i].direcao.x = camera_view_vector.x;
-                    vetor_balas[i].direcao.y = camera_view_vector.y;
-                    vetor_balas[i].direcao.z = camera_view_vector.z;
-
-                    glm::vec4 eixo_rotacao = crossproduct(glm::vec4(0.0f,1.0f,0.0f,0.0f),camera_view_vector);
-                    vetor_balas[i].eixo_rotacao_normalizado = normalize(eixo_rotacao);
-                    glm::vec4 view_normalizado = normalize(camera_view_vector);
-                    float cosseno_rotacao = dotproduct(view_normalizado,glm::vec4(0.0f,1.0f,0.0f,0.0f));
-
-                    vetor_balas[i].angulo_rotacao = acosf(cosseno_rotacao);
-                    break;
-                }
+            disparar = false;
+            dispara_balas(vetor_balas);
         }
 
-        for (int i = 0; i < QUANTIDADE_BALAS; i++)
-        {
-            if (vetor_balas[i].desenhar == true)
-            {
-                vetor_balas[i].x += VELOCIDADE_BALAS*vetor_balas[i].direcao.x;
-                vetor_balas[i].y += VELOCIDADE_BALAS*vetor_balas[i].direcao.y;
-                vetor_balas[i].z += VELOCIDADE_BALAS*vetor_balas[i].direcao.z;
+        desenha_balas(vetor_balas);
+        destroi_alvos(vetor_balas,vetor_alvos);
+        desenha_skybox();
+        desenha_hud();
 
-                model = Matrix_Translate(vetor_balas[i].x,vetor_balas[i].y,vetor_balas[i].z)
-                *Matrix_Scale(0.03f,0.03f,0.03f)
-                *Matrix_Rotate(vetor_balas[i].angulo_rotacao,vetor_balas[i].eixo_rotacao_normalizado);
-                glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-                glUniform1i(g_object_id_uniform, BULLET);
-                DrawVirtualObject("Bullet");
-            }
-        }
-
-        /* TESTE COM A HITBOX */
-
-        for (int i = 0; i < QUANTIDADE_BALAS; i++)
-        {
-            for (int j = 0; j < QUANTIDADE_ALVOS; j++)
-            {
-                if (vetor_balas[i].desenhar == true)
-                {
-                    if (vetor_balas[i].x >= vetor_alvos[j].bbox_minimo.x &&
-                        vetor_balas[i].x <= vetor_alvos[j].bbox_maximo.x &&
-                        vetor_balas[i].y >= vetor_alvos[j].bbox_minimo.y &&
-                        vetor_balas[i].y <= vetor_alvos[j].bbox_maximo.y &&
-                        vetor_balas[i].z <= vetor_alvos[j].bbox_maximo.z &&
-                        vetor_balas[i].z >= vetor_alvos[j].bbox_maximo.z-ESPESSURA_ALVOS)
-                        {
-                            vetor_alvos[j].dano += 1;
-                            vetor_balas[i].desenhar = false;
-                        }
-                }
-            }
-        }
-
-        glDisable(GL_DEPTH_TEST);
-        /* DESENHO DA ARMA */
-        model = Matrix_Translate(0.75f,-0.70f,0.0f)*Matrix_Scale(-0.12f,0.12f,0.12f)*Matrix_Rotate_X(-0.1f)*Matrix_Rotate_Y(-15.3f);
-        view = Matrix_Identity();
-        projection = Matrix_Identity();
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
-        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
-        glUniform1i(g_object_id_uniform, ARMA);
-        DrawVirtualObject("Cube_Cube.001");
-        /* DESENHO DA MIRA */
-        glUniform1i(g_object_id_uniform, MIRA);
-        view = Matrix_Identity();
-        projection = Matrix_Identity();
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
-        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
-        /* PARTE ESQUERDA DA MIRA */
-        model = Matrix_Translate(-0.02f,0.0f,0.0f)*Matrix_Scale(-0.012f,0.007f,0.1f)*Matrix_Rotate_X(-1.570796237f)*Matrix_Rotate_Y(-1.570796237f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        DrawVirtualObject("the_plane");
-        /* PARTE DIREITA DA MIRA */
-        model = Matrix_Translate(0.02f,0.0f,0.0f)*Matrix_Scale(-0.012f,0.007f,0.1f)*Matrix_Rotate_X(-1.570796237f)*Matrix_Rotate_Y(-1.570796237f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        DrawVirtualObject("the_plane");
-        /* PARTE SUPERIOR DA MIRA */
-        model = Matrix_Translate(0.0f,0.038f,0.0f)*Matrix_Scale(-0.0038f,0.022f,0.1f)*Matrix_Rotate_X(-1.570796237f)*Matrix_Rotate_Y(-1.570796237f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        DrawVirtualObject("the_plane");
-        /* PARTE INFERIOR DA MIRA */
-        model = Matrix_Translate(0.0f,-0.038f,0.0f)*Matrix_Scale(-0.0038f,0.022f,0.1f)*Matrix_Rotate_X(-1.570796237f)*Matrix_Rotate_Y(-1.570796237f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        DrawVirtualObject("the_plane");
-        glEnable(GL_DEPTH_TEST);
+        /* NOVAS CHAMADAS DE FUNÇÕES DO TRABALHO FINAL ACIMA. */
 
         // Imprimimos na tela informação sobre o número de quadros renderizados
         // por segundo (frames per second).
