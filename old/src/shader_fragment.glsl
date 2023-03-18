@@ -213,7 +213,7 @@ void main()
     // Termo especular utilizando o modelo de iluminação de Phong
     vec3 phong_specular_term  = Ks*I*pow(max(0, dot(r, v)), q); // PREENCH AQUI o termo especular de Phong
 
-    if(object_id == SKYBOX){
+    if(object_id == SKYBOX || object_id == SKYBOX_TROFEU){
         color.rgb = Kd;
     }
     else{
