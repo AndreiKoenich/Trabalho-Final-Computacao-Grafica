@@ -199,7 +199,7 @@ float g_CameraDistance = 2.5f; // Distância da câmera para a origem
 /* NOVAS VARIAVEIS GLOBAIS ABAIXO */
 
 bool iniciar_jogo = false;
-bool fim_jogo = true;
+bool fim_jogo = false;
 
 float r = g_CameraDistance;
 float y = 0.0f;
