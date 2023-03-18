@@ -199,7 +199,7 @@ float g_CameraDistance = 2.5f; // Distância da câmera para a origem
 /* NOVAS VARIAVEIS GLOBAIS ABAIXO */
 
 bool iniciar_jogo = false;
-bool fim_jogo = false;
+bool fim_jogo = true;
 
 float r = g_CameraDistance;
 float y = 0.0f;
@@ -468,10 +468,10 @@ void desenha_hud()
     glEnable(GL_DEPTH_TEST);
 }
 
-void sala_trofeu()
+void desenha_trofeu()
 {
     glm::mat4 model;
-    model = Matrix_Translate(0.0f,0.0f,-0.5f);
+    model = Matrix_Translate(0.0f,-0.5f,0.0f)*Matrix_Scale(4.0f,4.0f,4.0f)*Matrix_Rotate_Y(-3.14159265359f);
     glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
     glUniform1i(g_object_id_uniform, TROFEU);
     glDisable(GL_CULL_FACE);
@@ -722,6 +722,15 @@ int main(int argc, char* argv[])
         x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
         camera_view_vector = glm::vec4(x,y,z,0.0f); // Vetor "view", sentido para onde a câmera está virada
         camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+        camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+
+        if (fim_jogo)
+        {
+            camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
+            camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+            camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
+        }
+
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
         // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
 
@@ -799,12 +808,7 @@ int main(int argc, char* argv[])
 
         if (fim_jogo)
         {
-            camera_position_c  = glm::vec4(0.0,0.0,0.0,1.0f); // Ponto "c", centro da câmera
-            camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
-            camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
-            camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
-
-            sala_trofeu();
+            desenha_trofeu();
             desenha_skybox(SKYBOX_TROFEU);
         }
 
@@ -1458,29 +1462,31 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
    // if (!g_LeftMouseButtonPressed)
       //  return;
 
-    // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
-    float dx = xpos - g_LastCursorPosX;
-    float dy = ypos - g_LastCursorPosY;
+    if (g_LeftMouseButtonPressed && fim_jogo)
+    {
+        // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
+        float dx = xpos - g_LastCursorPosX;
+        float dy = ypos - g_LastCursorPosY;
 
-    // Atualizamos parâmetros da câmera com os deslocamentos
-    g_CameraTheta -= 0.01f*dx;
-    g_CameraPhi   -= 0.01f*dy;
+        // Atualizamos parâmetros da câmera com os deslocamentos
+        g_CameraTheta -= 0.01f*dx;
+        g_CameraPhi   += 0.01f*dy;
 
-    // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
-    float phimax = 3.141592f/2;
-    float phimin = -phimax;
+        // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
+        float phimax = 3.141592f/2;
+        float phimin = -phimax;
 
-    if (g_CameraPhi > phimax)
-        g_CameraPhi = phimax;
+        if (g_CameraPhi > phimax)
+            g_CameraPhi = phimax;
 
-    if (g_CameraPhi < phimin)
-        g_CameraPhi = phimin;
+        if (g_CameraPhi < phimin)
+            g_CameraPhi = phimin;
 
-    // Atualizamos as variáveis globais para armazenar a posição atual do
-    // cursor como sendo a última posição conhecida do cursor.
-    g_LastCursorPosX = xpos;
-    g_LastCursorPosY = ypos;
-
+        // Atualizamos as variáveis globais para armazenar a posição atual do
+        // cursor como sendo a última posição conhecida do cursor.
+        g_LastCursorPosX = xpos;
+        g_LastCursorPosY = ypos;
+    }
 }
 
 // Função callback chamada sempre que o usuário movimenta a "rodinha" do mouse.
