@@ -199,6 +199,7 @@ float g_CameraDistance = 2.5f; // Distância da câmera para a origem
 /* NOVAS VARIAVEIS GLOBAIS ABAIXO */
 
 bool iniciar_jogo = false;
+bool fim_jogo = false;
 
 float r = g_CameraDistance;
 float y = 0.0f;
@@ -208,6 +209,7 @@ float x = 0.0f;
 glm::vec4 camera_position_c  = glm::vec4(0.0f,0.55f,4.5f,1.0f); // Ponto "c", centro da câmera
 glm::vec4 camera_view_vector = glm::vec4(0.0f,0.0f,0.0f,0.0f); // Vetor "view", sentido para onde a câmera está virada
 glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eixo Y global)
+glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
 
 glm::vec4 w = negative_vector(camera_view_vector)/norm(camera_view_vector);/* PREENCHA AQUI o cálculo do vetor w */;
 glm::vec4 u = crossproduct(camera_up_vector,w)/norm(crossproduct(camera_up_vector,w)); /* PREENCHA AQUI o cálculo do vetor u */;
@@ -240,13 +242,15 @@ int tecla_D_pressionada = 0;
 #define QUANTIDADE_BALAS 50
 #define ALTURA_BALAS 0.8
 
-#define PLANE  0
+#define PLANE 0
 #define ALVO 1
 #define ARMA 2
 #define BULLET 3
 #define SKYBOX 4
 #define MIRA 5
 #define TELA_INICIO 6
+#define TROFEU 7
+#define SKYBOX_TROFEU 8
 
 /* NOVAS VARIÁVEIS GLOBAIS ABAIXO. */
 
@@ -343,24 +347,6 @@ void desenha_chao()
     DrawVirtualObject("the_plane");
 }
 
-void movimenta_alvos(Alvo vetor_alvos[])
-{
-    for (int i = 0; i < QUANTIDADE_ALVOS; i++)
-    {
-        if (vetor_alvos[i].x >= LIMITE_DIR_ALVO)
-            vetor_alvos[i].direcao = DIRECAO_ESQUERDA;
-
-        else if (vetor_alvos[i].x <= LIMITE_ESQ_ALVO)
-            vetor_alvos[i].direcao = DIRECAO_DIREITA;
-
-        if (vetor_alvos[i].direcao == DIRECAO_DIREITA)
-            vetor_alvos[i].x += vetor_alvos[i].velocidade_alvo*delta_t;
-
-        else if (vetor_alvos[i].direcao == DIRECAO_ESQUERDA)
-            vetor_alvos[i].x -= vetor_alvos[i].velocidade_alvo*delta_t;
-    }
-}
-
 void desenha_alvos(Alvo vetor_alvos[])
 {
     glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
@@ -384,25 +370,6 @@ void desenha_alvos(Alvo vetor_alvos[])
             vetor_alvos[i].bbox_maximo.y += vetor_alvos[i].y;
             vetor_alvos[i].bbox_maximo.z += vetor_alvos[i].z;
         }
-    }
-}
-
-void controla_balas(Bala vetor_balas[])
-{
-    for (int i = 0; i < QUANTIDADE_BALAS; i++)
-    {
-        if (vetor_balas[i].z >= LIMITE_FRENTE ||
-            vetor_balas[i].z <= LIMITE_FUNDO ||
-            vetor_balas[i].x <= LIMITE_ESQUERDA ||
-            vetor_balas[i].x >= LIMITE_DIREITA ||
-            vetor_balas[i].y >= LIMITE_CIMA ||
-            vetor_balas[i].y <= LIMITE_BAIXO)
-            {
-                vetor_balas[i].desenhar = false;
-                vetor_balas[i].x = 0.0;
-                vetor_balas[i].y = 0.0;
-                vetor_balas[i].z = 0.0;
-            }
     }
 }
 
@@ -451,35 +418,12 @@ void desenha_balas(Bala vetor_balas[])
     }
 }
 
-void destroi_alvos(Bala vetor_balas[], Alvo vetor_alvos[])
-{
-    for (int i = 0; i < QUANTIDADE_BALAS; i++)
-    {
-        for (int j = 0; j < QUANTIDADE_ALVOS; j++)
-        {
-            if (vetor_balas[i].desenhar == true)
-            {
-                if (vetor_balas[i].x >= vetor_alvos[j].bbox_minimo.x &&
-                    vetor_balas[i].x <= vetor_alvos[j].bbox_maximo.x &&
-                    vetor_balas[i].y >= vetor_alvos[j].bbox_minimo.y &&
-                    vetor_balas[i].y <= vetor_alvos[j].bbox_maximo.y &&
-                    vetor_balas[i].z <= vetor_alvos[j].bbox_maximo.z &&
-                    vetor_balas[i].z >= vetor_alvos[j].bbox_maximo.z-ESPESSURA_ALVOS)
-                    {
-                        vetor_alvos[j].dano += 1;
-                        vetor_balas[i].desenhar = false;
-                    }
-            }
-        }
-    }
-}
-
-void desenha_skybox()
+void desenha_skybox(int id_objeto)
 {
     glm::mat4 model;
     model = Matrix_Scale(15.0f,15.0f,15.0f);
     glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-    glUniform1i(g_object_id_uniform, SKYBOX);
+    glUniform1i(g_object_id_uniform, id_objeto);
     glDisable(GL_CULL_FACE);
     DrawVirtualObject("the_sphere");
     glEnable(GL_CULL_FACE);
@@ -522,6 +466,90 @@ void desenha_hud()
     glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
     DrawVirtualObject("the_plane");
     glEnable(GL_DEPTH_TEST);
+}
+
+void sala_trofeu()
+{
+    glm::mat4 model;
+    model = Matrix_Translate(0.0f,0.0f,-0.5f);
+    glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+    glUniform1i(g_object_id_uniform, TROFEU);
+    glDisable(GL_CULL_FACE);
+    DrawVirtualObject("Cup");
+    glEnable(GL_CULL_FACE);
+}
+
+bool verifica_fim(Alvo vetor_alvos[])
+{
+    int i = 0;
+    for(i = 0; i < QUANTIDADE_ALVOS; i++)
+        if (vetor_alvos[i].dano < MAXIMO_DANO)
+            break;
+
+    if (i == QUANTIDADE_ALVOS)
+        return true;
+    else
+        return false;
+}
+
+void controla_balas(Bala vetor_balas[])
+{
+    for (int i = 0; i < QUANTIDADE_BALAS; i++)
+    {
+        if (vetor_balas[i].z >= LIMITE_FRENTE ||
+            vetor_balas[i].z <= LIMITE_FUNDO ||
+            vetor_balas[i].x <= LIMITE_ESQUERDA ||
+            vetor_balas[i].x >= LIMITE_DIREITA ||
+            vetor_balas[i].y >= LIMITE_CIMA ||
+            vetor_balas[i].y <= LIMITE_BAIXO)
+            {
+                vetor_balas[i].desenhar = false;
+                vetor_balas[i].x = 0.0;
+                vetor_balas[i].y = 0.0;
+                vetor_balas[i].z = 0.0;
+            }
+    }
+}
+
+void movimenta_alvos(Alvo vetor_alvos[])
+{
+    for (int i = 0; i < QUANTIDADE_ALVOS; i++)
+    {
+        if (vetor_alvos[i].x >= LIMITE_DIR_ALVO)
+            vetor_alvos[i].direcao = DIRECAO_ESQUERDA;
+
+        else if (vetor_alvos[i].x <= LIMITE_ESQ_ALVO)
+            vetor_alvos[i].direcao = DIRECAO_DIREITA;
+
+        if (vetor_alvos[i].direcao == DIRECAO_DIREITA)
+            vetor_alvos[i].x += vetor_alvos[i].velocidade_alvo*delta_t;
+
+        else if (vetor_alvos[i].direcao == DIRECAO_ESQUERDA)
+            vetor_alvos[i].x -= vetor_alvos[i].velocidade_alvo*delta_t;
+    }
+}
+
+void destroi_alvos(Bala vetor_balas[], Alvo vetor_alvos[])
+{
+    for (int i = 0; i < QUANTIDADE_BALAS; i++)
+    {
+        for (int j = 0; j < QUANTIDADE_ALVOS; j++)
+        {
+            if (vetor_balas[i].desenhar == true && vetor_alvos[j].dano < MAXIMO_DANO)
+            {
+                if (vetor_balas[i].x >= vetor_alvos[j].bbox_minimo.x &&
+                    vetor_balas[i].x <= vetor_alvos[j].bbox_maximo.x &&
+                    vetor_balas[i].y >= vetor_alvos[j].bbox_minimo.y &&
+                    vetor_balas[i].y <= vetor_alvos[j].bbox_maximo.y &&
+                    vetor_balas[i].z <= vetor_alvos[j].bbox_maximo.z &&
+                    vetor_balas[i].z >= vetor_alvos[j].bbox_maximo.z-ESPESSURA_ALVOS)
+                    {
+                        vetor_alvos[j].dano += 1;
+                        vetor_balas[i].desenhar = false;
+                    }
+            }
+        }
+    }
 }
 
 int main(int argc, char* argv[])
@@ -604,6 +632,8 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/glocktexture.png"); // TextureImage3
     LoadTextureImage("../../data/skybox.jpeg"); // TextureImage4
     LoadTextureImage("../../data/telainicio.jpg"); // TextureImage5
+    LoadTextureImage("../../data/trofeu_textura.png"); // TextureImage6
+    LoadTextureImage("../../data/skybox_trofeu.jpg"); // TextureImage7
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
 
@@ -626,6 +656,10 @@ int main(int argc, char* argv[])
     ObjModel spheremodel("../../data/sphere.obj");
     ComputeNormals(&spheremodel);
     BuildTrianglesAndAddToVirtualScene(&spheremodel);
+
+    ObjModel trofeu("../../data/Cup.obj");
+    ComputeNormals(&trofeu);
+    BuildTrianglesAndAddToVirtualScene(&trofeu);
 
     if ( argc > 1 )
     {
@@ -732,12 +766,11 @@ int main(int argc, char* argv[])
 
         /* NOVAS CHAMADAS DE FUNÇÕES DO TRABALHO FINAL ABAIXO. */
 
-        if (iniciar_jogo == false)
+        if (!iniciar_jogo && !fim_jogo)
             tela_inicio();
 
-        if (iniciar_jogo == true)
+        if (iniciar_jogo && !fim_jogo)
         {
-
             desenha_chao();
 
             t_now = glfwGetTime();
@@ -746,7 +779,6 @@ int main(int argc, char* argv[])
 
             movimenta_alvos(vetor_alvos);
             desenha_alvos(vetor_alvos);
-            desenha_skybox();
             controla_balas(vetor_balas);
 
             if(g_LeftMouseButtonPressed && disparar == 0)
@@ -759,9 +791,24 @@ int main(int argc, char* argv[])
 
             desenha_balas(vetor_balas);
             destroi_alvos(vetor_balas,vetor_alvos);
-            desenha_skybox();
+            desenha_skybox(SKYBOX);
             desenha_hud();
+
+            fim_jogo = verifica_fim(vetor_alvos);
         }
+
+        if (fim_jogo)
+        {
+            camera_position_c  = glm::vec4(0.0,0.0,0.0,1.0f); // Ponto "c", centro da câmera
+            camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+            camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
+            camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+
+            sala_trofeu();
+            desenha_skybox(SKYBOX_TROFEU);
+        }
+
+
         /* NOVAS CHAMADAS DE FUNÇÕES DO TRABALHO FINAL ACIMA. */
 
         // Imprimimos na tela informação sobre o número de quadros renderizados
@@ -782,32 +829,35 @@ int main(int argc, char* argv[])
         // pela biblioteca GLFW.
         glfwPollEvents();
 
-        if (tecla_W_pressionada == 1)
+        if (iniciar_jogo && !fim_jogo)
         {
-            camera_position_c.x += (-1*w.x*VELOCIDADE_CAMERA);
-            //camera_position_c.y += (-1*w.y*VELOCIDADE_CAMERA);
-            camera_position_c.z += (-1*w.z*VELOCIDADE_CAMERA);
-        }
+            if (tecla_W_pressionada == 1)
+            {
+                camera_position_c.x += (-1*w.x*VELOCIDADE_CAMERA);
+                //camera_position_c.y += (-1*w.y*VELOCIDADE_CAMERA);
+                camera_position_c.z += (-1*w.z*VELOCIDADE_CAMERA);
+            }
 
-        if (tecla_S_pressionada == 1)
-        {
-            camera_position_c.x += (w.x*VELOCIDADE_CAMERA);
-            //camera_position_c.y += (w.y*VELOCIDADE_CAMERA);
-            camera_position_c.z += (w.z*VELOCIDADE_CAMERA);
-        }
+            if (tecla_S_pressionada == 1)
+            {
+                camera_position_c.x += (w.x*VELOCIDADE_CAMERA);
+                //camera_position_c.y += (w.y*VELOCIDADE_CAMERA);
+                camera_position_c.z += (w.z*VELOCIDADE_CAMERA);
+            }
 
-        if (tecla_D_pressionada == 1)
-        {
-            camera_position_c.x += (u.x*VELOCIDADE_CAMERA);
-            //camera_position_c.y += (u.y*VELOCIDADE_CAMERA);
-            camera_position_c.z += (u.z*VELOCIDADE_CAMERA);
-        }
+            if (tecla_D_pressionada == 1)
+            {
+                camera_position_c.x += (u.x*VELOCIDADE_CAMERA);
+                //camera_position_c.y += (u.y*VELOCIDADE_CAMERA);
+                camera_position_c.z += (u.z*VELOCIDADE_CAMERA);
+            }
 
-        if (tecla_A_pressionada == 1)
-        {
-            camera_position_c.x += (-1*u.x*VELOCIDADE_CAMERA);
-            //camera_position_c.y += (-1*u.y*VELOCIDADE_CAMERA);
-            camera_position_c.z += (-1*u.z*VELOCIDADE_CAMERA);
+            if (tecla_A_pressionada == 1)
+            {
+                camera_position_c.x += (-1*u.x*VELOCIDADE_CAMERA);
+                //camera_position_c.y += (-1*u.y*VELOCIDADE_CAMERA);
+                camera_position_c.z += (-1*u.z*VELOCIDADE_CAMERA);
+            }
         }
     }
 
@@ -967,6 +1017,8 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage3"), 3);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage4"), 4);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage5"), 5);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage6"), 6);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "TextureImage7"), 7);
     glUseProgram(0);
 }
 
