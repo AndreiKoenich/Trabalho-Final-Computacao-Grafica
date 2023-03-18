@@ -19,13 +19,15 @@ uniform mat4 view;
 uniform mat4 projection;
 
 // Identificador que define qual objeto está sendo desenhado no momento
-#define PLANE  0
+#define PLANE 0
 #define ALVO 1
 #define ARMA 2
 #define BULLET 3
 #define SKYBOX 4
 #define MIRA 5
 #define TELA_INICIO 6
+#define TROFEU 7
+#define SKYBOX_TROFEU 8
 
 #define RO 10
 uniform int object_id;
@@ -41,6 +43,8 @@ uniform sampler2D TextureImage2;
 uniform sampler2D TextureImage3;
 uniform sampler2D TextureImage4;
 uniform sampler2D TextureImage5;
+uniform sampler2D TextureImage6;
+uniform sampler2D TextureImage7;
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec4 color;
@@ -85,7 +89,7 @@ void main()
     vec3 Ka; // Refletância ambiente
     float q; // Expoente especular para o modelo de iluminação de Phong
 
-    if ( object_id == PLANE )
+    if (object_id == PLANE)
     {
         Kd = vec3(0.2,0.2,0.2);
         Ks = vec3(0.3,0.3,0.3);
@@ -96,7 +100,7 @@ void main()
         Kd = texture(TextureImage0, vec2(U,V)).rgb;
     }
 
-    else if ( object_id == ALVO )
+    else if (object_id == ALVO)
     {
         //Ka = vec3(1.000000, 1.000000, 1.000000);
        // Kd = vec3(0.001214, 0.000728, 0.001943);
@@ -108,7 +112,7 @@ void main()
         Kd *= 100;
     }
 
-    else if ( object_id == BULLET )
+    else if (object_id == BULLET)
     {
         q = 20.0;
         U = texcoords.x;
@@ -116,7 +120,7 @@ void main()
         Kd = texture(TextureImage2, vec2(U,V)).rgb;
     }
 
-    else if ( object_id == ARMA )
+    else if (object_id == ARMA)
     {
         q = 20.0;
         U = texcoords.x;
@@ -124,7 +128,7 @@ void main()
         Kd = texture(TextureImage3, vec2(U,V)).rgb;
     }
 
-    else if ( object_id == MIRA )
+    else if (object_id == MIRA)
     {
         Kd = vec3(0.0,255.0,0.0);
         Ks = vec3(0.0,0.0,0.0);
@@ -132,7 +136,7 @@ void main()
         q = 20.0;
     }
 
-    else if ( object_id == SKYBOX) // Objeto desconhecido = preto
+    else if (object_id == SKYBOX)
     {
         q = 0.0;
         vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
@@ -160,6 +164,35 @@ void main()
         V = texcoords.y;
         Kd = texture(TextureImage5, vec2(U,V)).rgb;
         Kd *= 100;
+    }
+
+    else if (object_id == TROFEU)
+    {
+        Kd = vec3(1.0,1.0,1.0);
+        Ks = vec3(0.5,0.5,0.5);
+        Ka = vec3(0.502,0.502,0.502);
+        q = 20.0;
+        U = texcoords.x;
+        V = texcoords.y;
+        Kd = texture(TextureImage6, vec2(U,V)).rgb;
+        //Kd *= 100;
+    }
+
+    else if (object_id == SKYBOX_TROFEU)
+    {
+        q = 0.0;
+        vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
+        bbox_center.w = 1.0;
+
+        vec4 p_linha = bbox_center + normalize(position_model - bbox_center);
+        vec4 p_vetor = p_linha - bbox_center;
+
+        float theta = atan(p_vetor.x, p_vetor.z);
+        float phi = asin(p_vetor.y);
+
+        U = (theta + M_PI)/(2*M_PI);
+        V = (phi + M_PI_2)/M_PI;
+        Kd = texture(TextureImage7, vec2(U,V)).rgb;
     }
 
     // Espectro da fonte de iluminação
@@ -206,4 +239,3 @@ void main()
     // Veja https://en.wikipedia.org/w/index.php?title=Gamma_correction&oldid=751281772#Windows.2C_Mac.2C_sRGB_and_TV.2Fvideo_standard_gammas
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);
 }
-
